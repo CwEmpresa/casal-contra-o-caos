@@ -1,0 +1,21 @@
+{
+  "name": "casal-contra-o-caos",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cooperativo 3D assimétrico: Comprador e Operador, energia, códigos e triagem",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/check.js",
+    "play": "node scripts/start-local.js"
+  },
+  "dependencies": {
+    "three": "^0.186.1",
+    "ws": "^8.18.3"
+  }
+}

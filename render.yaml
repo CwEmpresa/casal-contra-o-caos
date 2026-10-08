@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: casal-contra-o-caos
+    runtime: node
+    numInstances: 1
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
