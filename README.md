@@ -1,114 +1,97 @@
-# Casal Contra o Caos · v3.0 — Mercado da Meia-noite
+# Casal Contra o Caos · v4.0 — Mercado da Meia-noite
 
-Cooperativo online para **duas pessoas, em 3D e primeira pessoa**. Um jogador é o **Comprador**, explorando o mercado com uma lanterna. O outro é o **Operador**, trabalhando na central: recebe pedidos, distribui energia, libera portas e escolhe rotas da esteira. Cada um tem informações que o outro precisa. Os postos trocam após três entregas.
+Cooperativo online para duas pessoas, em **3D e primeira pessoa**, preparado para celular na horizontal. Um jogador opera a central; o outro busca os produtos. São seis entregas, dez minutos e troca de postos depois da terceira entrega.
 
-## Abrir a versão nova no Windows
+## O que mudou nesta versão
 
-1. Instale Node.js **22 ou superior**: https://nodejs.org/ . Os testes desta versão usaram Node 24.19.0.
-2. Extraia **todo o ZIP em uma pasta nova**. Não misture os arquivos com uma versão anterior.
-3. Na pasta `casal-contra-o-caos`, abra **`INICIAR_JOGO.bat`**.
-4. O iniciador instala as dependências, inicia este jogo e abre o endereço correto. A instalação precisa de internet.
-5. A porta inicial é **3001**. Se estiver ocupada, ele procura uma livre até 3020 e abre o endereço correspondente.
-6. Mantenha a janela aberta. `Ctrl+C` encerra o servidor.
+- Mercado aberto de 28 × 28: frios e padaria ao fundo, hortifrúti à esquerda, gôndolas paralelas de mercearia, esteira e caixas na frente. Oito corredores sinalizados, mapa e indicação de direção.
+- Circulação livre: os códigos liberam a **retirada dos produtos**, por 40 s no primeiro turno e 30 s no segundo. Não há grades prendendo o comprador em salas.
+- Central com iluminação própria, inclusive durante sobrecargas; painel claro e comandos apresentados conforme a etapa.
+- Visual cartoon com bordas arredondadas, produtos distintos, rótulos, prateleiras abastecidas nas duas faces da mercearia e cores por setor. Personagens simples.
+- Tela horizontal obrigatória no celular. O jogo pausa para a dupla quando um aparelho fica na vertical ou a página vai para segundo plano.
+- HUD para paisagem, controles de toque separados, rádio e mapa em painéis próprios. Teclado numérico do jogo para os códigos.
+- Introdução curta por posto; o relógio espera ambos confirmarem que estão prontos. Pedido só chega ao comprador quando a central o transmite.
+- Desenho estático agrupado em 33 lotes, contra 205 na v3; um atlas para os rótulos, sem sombras dinâmicas nem várias luzes pontuais. Isso reduz trabalho gráfico, mas não mede FPS.
+- No celular: alvo de 30 FPS, densidade de pixels limitada a 1, redução automática de resolução quando há lentidão sustentada e modo Econômico. Computador: alvo de 60 FPS, densidade máxima 1,5.
+- Movimento previsto localmente, com confirmação dos comandos pelo servidor e reaplicação dos comandos ainda pendentes. O tamanho da tela só é recalculado quando necessário.
 
-O iniciador não encerra outros projetos nem abre a porta 3000. Para distinguir esta versão, a página inicial diz **“Você libera. Eu encontro.”** e **“EDIÇÃO NOTURNA / 03”**. Se aparecer a versão antiga, confira a pasta do iniciador e use `Ctrl+F5` no endereço exibido por ele.
+## Abrir no computador
 
-## Terminal / macOS / Linux
+1. Instale Node.js 22 ou superior: https://nodejs.org/ . Validado com Node 24.19.0.
+2. Extraia **todo o ZIP em uma pasta nova**. Não misture versões.
+3. Abra `INICIAR_JOGO.bat` dentro da pasta `casal-contra-o-caos`.
+4. O iniciador instala dependências, inicia este jogo e abre a porta correta. Começa em 3001 e procura outra até 3020 se necessário.
+5. Mantenha a janela aberta. `Ctrl+C` encerra o servidor.
 
-Na pasta que contém `package.json`:
+A tela inicial da v4 diz **“Uma compra. Dois postos. Só juntos.”** e **“EDIÇÃO 04”**. Se aparecer outro projeto, confira o endereço exibido no terminal e a pasta de onde abriu o iniciador.
+
+No terminal, macOS ou Linux:
 
 ```bash
 npm ci
 npm run play
 ```
 
-Use o endereço exato mostrado no terminal. No Linux, abra-o manualmente. `npm start` usa a porta 3001, mas não procura uma porta alternativa nem abre o navegador. Para desenvolvimento: `npm run dev`.
+Abra o endereço mostrado. `npm start` usa 3001 sem procurar outra porta. `npm run dev` reinicia o servidor quando o código muda.
 
-## Conectar a dupla
+## Conectar os dois celulares
 
-Uma pessoa cria a sala, a outra abre **o mesmo servidor**, escolhe entrar e informa o código de cinco caracteres. O anfitrião inicia quando ambos estiverem conectados.
+- Uma pessoa cria a sala. A outra abre **o mesmo endereço**, toca em “Entrar com código” e informa os cinco caracteres.
+- No mesmo Wi-Fi, use o IP do computador e a porta, por exemplo `http://192.168.1.20:3001`. O computador precisa permanecer ligado e aceitar Node no firewall da rede privada.
+- Em redes diferentes, publique este servidor conforme `docs/PUBLICAR.md`. `localhost` em outro aparelho não aponta para o seu computador.
+- Girem os dois aparelhos. Se a rotação automática do sistema estiver desligada, habilitem-na. O botão ⛶ tenta abrir tela cheia e bloquear a orientação quando o navegador permite. Nos demais casos, a tela vertical continua bloqueada pelo jogo.
+- Teste em abas no mesmo computador pode pausar ao alternar abas, pois segundo plano pausa o jogo. Para testar simultaneamente, use dois aparelhos ou duas janelas visíveis. Evite “Duplicar aba”, que pode copiar a sessão.
 
-- **Mesmo computador:** duas abas novas abertas manualmente, ou uma janela anônima. “Duplicar aba” pode copiar a credencial da sessão. Deixe o som em apenas uma aba.
-- **Mesmo Wi-Fi:** no segundo aparelho, abra `http://IP-DO-COMPUTADOR:PORTA`, por exemplo `http://192.168.1.20:3001`. No Windows, `ipconfig` mostra o IPv4; permita Node no firewall da rede privada se necessário.
-- **Redes diferentes:** é necessário publicar o servidor. Consulte `docs/PUBLICAR.md`. `localhost` não conecta aparelhos distintos. Este pacote não inclui hospedagem ou deploy.
+O pacote contém código, não uma publicação automática. O projeto mantém o servidor Node/WebSocket na mesma origem.
 
-## Uma entrega, passo a passo
+## Cada entrega, passo a passo
 
-1. O **Operador** recebe uma descrição do pedido, com setor, variante, quantidade e selo. Exemplo: algo que vai no cereal, integral, 1 litro e selo circular. Pode transmitir a descrição usando o botão do rádio.
-2. O **Comprador** encontra a porta do setor, chega perto e olha para ela. Só ele recebe o código daquela placa. “Transmitir leitura” envia o código pelo rádio.
-3. O Operador **energiza o setor**, digita o código e abre a porta por **20 segundos** no primeiro turno ou **14 segundos** no segundo.
-4. O Comprador compara os produtos. Leite integral e desnatado, café intenso e descafeinado, pacotes de tamanhos diferentes: a embalagem importa. O expositor só libera o produto enquanto seu setor tem energia.
-5. O Comprador leva o produto até a esteira, perto do caixa, e interage para depositar. Por dentro de cada setor, olhar para a porta e pressionar E aciona uma **saída de emergência de 5 segundos**, mesmo sem energia.
-6. Na esteira, o Comprador lê um **símbolo**. O Operador recebe a tabela símbolo → destino, mas não o símbolo da carga. A dupla precisa se comunicar novamente.
-7. O Operador energiza a **esteira** e escolhe FRIO, SECO, FRESCO ou FRÁGIL conforme sua tabela. O símbolo é um código de logística: a rota correta vem da tabela, não da categoria do alimento.
-8. Produto e rota certos confirmam a entrega. Códigos e tabela são sorteados novamente. Após a terceira entrega, os personagens são reposicionados nos postos trocados.
-9. Depois da sexta entrega, o Comprador confirma no **caixa** e o Operador confirma na **central**, com uma diferença máxima de **4 segundos**. O Comprador encerra na saída verde.
+| Etapa | Central | Comprador no mercado |
+| --- | --- | --- |
+| 1. Pedido | Leia a descrição e toque em **Transmitir pedido**. | Leia o pedido e siga a indicação até o terminal do setor. |
+| 2. Liberação | Ligue o setor. Peça o código, toque no campo numérico e digite os três números. | Aproxime-se do terminal, olhe para ele e toque em **Transmitir leitura**. |
+| 3. Escolha | Ajude a conferir variante, quantidade e selo. Mantenha o setor ligado. | Com a retirada liberada, compare as embalagens e pegue a correta. |
+| 4. Esteira | Espere o símbolo. Ligue **Esteira**, consulte a tabela símbolo → rota e toque no destino. | Leve à esteira na frente da loja. Deposite, leia o símbolo e transmita. |
+| 5. Próximo pedido | Transmita a nova descrição. | Busque o próximo produto. Códigos e tabela mudam. |
 
-O carrinho próximo à saída mostra as compras aceitas; nesta versão o transporte ativo é feito pelas mãos e pela esteira. Mímicas e limite de três dicas foram retirados do modo principal.
+Depois da terceira entrega, os postos trocam automaticamente e a explicação do novo papel aparece. Depois da sexta, o comprador vai ao **caixa**, e os dois confirmam, cada um no seu posto, dentro de quatro segundos. Por fim, o comprador vai à **saída verde** e interage.
+
+A rota correta é a indicada pela tabela do símbolo, não pela categoria do alimento. O carrinho é cenográfico; as compras são transportadas nas mãos e pela esteira. Há 16 produtos, com duas variantes em cada uma das oito famílias. Mímica e limite de três dicas não fazem parte deste modo.
 
 ## Dificuldade e recuperação
 
-- **10 minutos** para concluir seis entregas.
-- Apenas **um circuito energizado por vez**: A, B, C, D ou esteira. “Desligar” resfria o sistema.
-- Energia ligada eleva o calor em 0,75 ponto/s; desligada reduz 3,2 pontos/s. Ao atingir 100%, ocorre sobrecarga. Também há falhas periódicas de energia.
-- Na **sobrecarga**, o Comprador lê o código do painel no cruzamento central, junto à parede do lado oeste. O Operador usa esse código para rearmar. O sistema também se recupera automaticamente após 18 segundos; vocês podem perder tempo, mas não ficam presos.
-- A carga precisa ser encaminhada em **45 segundos** no primeiro turno ou **32 segundos** no segundo.
-- Código errado, produto errado, rota errada ou tempo da esteira esgotado custam **12 segundos**. Cargas rejeitadas ficam na esteira: retire com E e devolva o produto a uma prateleira, ou deposite novamente para corrigir apenas a rota.
-- Portas têm proteção para não fechar sobre um jogador. O botão interno de emergência permite sair e tentar outra vez.
-- O rádio é texto dentro do jogo. Não depende de chamada externa. Não há áudio de voz, vídeo ou captura de microfone.
+- Apenas um circuito funciona por vez: A, B, C, D ou esteira. Energia ligada aumenta o calor em 0,75 ponto/s; desligada resfria 3,2 pontos/s.
+- As sobrecargas periódicas começam depois da primeira entrega. O comprador lê o **painel de rearme junto à central**, e o operador digita seu código. Também é possível esperar os 18 s de resfriamento automático.
+- A carga deve ser encaminhada em 45 s no primeiro turno ou 32 s no segundo.
+- Erros de código, produto, rota e prazo da esteira descontam 12 s. A mensagem distingue rota incorreta de produto fora do pedido.
+- Uma carga devolvida pode ser retirada. Se a rota estava errada, deposite novamente; se o produto estava errado, devolva na prateleira e escolha a embalagem pedida.
+- Se o acesso aos produtos vencer, peça nova liberação com o código do terminal. Os corredores continuam livres.
 
 ## Controles
 
-| Ação | Computador | Celular |
+| Ação | Computador | Celular na horizontal |
 | --- | --- | --- |
-| Andar | WASD ou ↑/↓ | Joystick esquerdo |
-| Olhar | Clique no cenário e mova o mouse; arrastar também funciona | Arraste o cenário |
-| Girar sem mouse | ←/→ | Arrastar cenário |
-| Interagir | E ou espaço | Botão da mão |
-| Abrir painel / rádio | Tab | Botão Rádio |
-| Operar central | Botões do painel | Botões do painel |
-| Soltar o mouse | Esc | — |
-| Lanterna | F ou botão | Botão da lanterna |
+| Andar | WASD ou ↑/↓ | Direcional à esquerda |
+| Olhar | Mouse / arraste, ou ←/→ | Arraste o cenário |
+| Pegar, depositar, confirmar | E ou espaço | Botão da mão |
+| Transmitir leitura local | E ou botão na tela | Mão ou “Transmitir leitura” |
+| Pedido / central | Tab | Pedido / Central |
+| Conversar | Botão Rádio | Botão Rádio |
+| Mapa | Botão Mapa | Botão Mapa |
+| Soltar mouse | Esc | — |
+| Lanterna | F | ☼ |
 
-Chegue perto e olhe para o objeto. A ação aparece junto à mira. O painel pode ser recolhido em “−” para enxergar o ambiente. Mensagens novas do parceiro também aparecem como aviso. Digitar no rádio interrompe o movimento.
+Feche o painel para caminhar. Abra-o novamente pelo botão Central/Pedido. No menu, escolha **Econômico** se precisar reduzir mais a resolução; a câmera estável já vem ligada. O rádio é texto; vocês também podem conversar em chamada separada. O jogo não captura microfone.
 
-A câmera fica estável por padrão; o menu `?` permite ativar um balanço discreto. Personagens continuam simples, com animação de caminhada e de item na mão.
-
-## Mercado e visual
-
-- Planta de **28 × 30**, quatro setores, **oito corredores**, sala de controle, área de estoque, triagem, caixa e saída.
-- **16 produtos**, em oito famílias com duas variantes cada. Nomes, variante, quantidade, código e selo nas embalagens/expositores; leitura de proximidade também aparece na interface.
-- Geladeiras, padaria com toldo, bandejas de ovos, balcão de queijo, caixotes de frutas e verduras, café e sacos de grãos.
-- Grades temporizadas animadas, console com monitores e chaves, rack elétrico, dutos, esteira com roletes, scanner, caixas de destinos e terminal de pagamento.
-- Luz ambiente reduzida, lanterna de alcance curto com sombras, luz setorial, azul dos frios, sinalização vermelha e saída verde.
-- Three.js local, modelos e texturas gerados pelo código, sem CDN ou assets externos. Instâncias agrupam os objetos repetidos; densidade de pixels limitada a 1,5.
-
-Exige **WebGL 2**. O estilo permanece simples e estilizado. Iluminação final, fluidez e interface em aparelhos reais ainda precisam da verificação indicada em `docs/VALIDACAO.md`.
-
-## Pontuação
-
-`entregas × 1200 + segundos restantes × 8 + rearmes em dupla × 150 − erros × 250`
-
-Erros também descontam tempo durante a partida. Vitória com 9.800 pontos ou mais dá três estrelas; com 8.000, duas; abaixo disso, uma. Derrota dá zero estrelas e mostra os pontos parciais.
-
-## Código e verificação
+## Verificação e limites
 
 ```bash
 npm test
 npm run check
 ```
 
-| Pasta | Conteúdo |
-| --- | --- |
-| `client/game/models.js` | Produtos, expositores, cenário, grades e personagem |
-| `client/game/renderer.js` | Câmera, previsão visual, luzes e leituras privadas |
-| `client/game/controls.js` | Teclado, mouse e toque |
-| `client/main.js` | Central, rádio, interface, salas e resultado |
-| `server/game.js` | Regras, pedidos, energia, portas, esteira e projeção privada |
-| `server/rooms.js` | Salas, credenciais e reconexão |
-| `shared/` | Catálogo, planta, colisões e ações contextuais |
-| `tests/` | Regras, fluxo completo, rede, modelos e interface sem GPU |
+Veja `docs/VALIDACAO.md` para os testes executados. Há testes de partida completa, rede real, privacidade, pausa por orientação, previsão com atraso e geometria. O cenário também foi inspecionado por renderização fora do navegador. **FPS, layout CSS e multitouch ainda precisam ser conferidos nos aparelhos reais.** Requer WebGL 2; não há garantia para todo celular.
 
-O servidor usa uma única instância. Salas ficam na memória e se perdem no reinício. Após detectar desconexão, a partida pausa; a sessão fica reservada por dois minutos. Recarregar a mesma aba permite retomar.
+Servidor de uma única instância, salas em memória e reconexão por até dois minutos. Reiniciar o servidor encerra as salas. Não há banco de dados, chat de voz, jogo offline ou múltiplas fases. O manifesto define a orientação da aplicação; o multiplayer depende de conexão.
 
-Não há persistência de partidas, múltiplas fases, chat de voz nem modo offline. O manifesto prepara a evolução da instalação como PWA, mas o multiplayer exige conexão.
+Pontuação: `entregas × 1200 + segundos restantes × 8 + rearmes × 150 − erros × 250`.

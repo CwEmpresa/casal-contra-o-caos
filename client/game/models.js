@@ -1,16 +1,33 @@
 import * as T from '/vendor/three.module.js';
 import {PRODUCTS,SECTORS,SUPERMARKET as L} from '/shared/levels.js';
 const geometries={box:new T.BoxGeometry(1,1,1),sphere:new T.SphereGeometry(1,12,8),cylinder:new T.CylinderGeometry(.5,.5,1,12),cone:new T.CylinderGeometry(.05,.5,1,12),torus:new T.TorusGeometry(.5,.14,6,12)};
+// Rounded carton/cabinet edges without subdivision modifiers at runtime.
+const rounded=new T.BoxGeometry(1,1,1,3,3,3),rp=rounded.attributes.position,rn=rounded.attributes.normal;
+for(let i=0;i<rp.count;i++){const point=new T.Vector3().fromBufferAttribute(rp,i),core=point.clone().clampScalar(-.43,.43),normal=point.clone().sub(core).normalize();point.copy(core).addScaledVector(normal,.07);rp.setXYZ(i,point.x,point.y,point.z);rn.setXYZ(i,normal.x,normal.y,normal.z);}geometries.rounded=rounded;
 const materials=new Map(),labelCache=new Map(),planeCache=new Map();
-export function material(color,metal=0,emissive=false){const key=color+':'+metal+':'+emissive;if(!materials.has(key))materials.set(key,new T.MeshStandardMaterial({color,roughness:metal?.4:.85,metalness:metal,emissive:emissive?color:0,emissiveIntensity:emissive?.55:0}));return materials.get(key);}
+export function material(color,metal=0,emissive=false){const key=color+':'+metal+':'+emissive;if(!materials.has(key))materials.set(key,new T.MeshLambertMaterial({color,emissive:emissive?color:0,emissiveIntensity:emissive?.55:0}));return materials.get(key);}
 export function shape(parent,type,size,pos,color,rotation=null,metal=0){const mesh=new T.Mesh(geometries[type],typeof color==='object'?color:material(color,metal));mesh.scale.set(...size);mesh.position.set(...pos);if(rotation)mesh.rotation.set(...rotation);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;}
-export const box=(p,size,pos,color,rot=null,metal=0)=>shape(p,'box',size,pos,color,rot,metal);
-export function label(parent,text,width,height,pos,{background='#23494a',color='#f9ead3',font=48,rotation=0,cached=false,lit=false}={}){
- const key=[text,width,height,background,color,font,lit].join('|');let mat=cached?labelCache.get(key):null;
- if(!mat){const canvas=document.createElement('canvas');canvas.width=512;canvas.height=Math.max(96,Math.round(512*height/width));const c=canvas.getContext('2d');c.fillStyle=background;c.fillRect(0,0,canvas.width,canvas.height);c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.font=`800 ${font}px sans-serif`;c.fillText(text,256,canvas.height/2,480);const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;
- mat=lit?new T.MeshStandardMaterial({map:texture,roughness:.8}):new T.MeshBasicMaterial({map:texture});mat.userData.owned=!cached;if(cached)labelCache.set(key,mat);}
- const geoKey=width+':'+height;if(cached&&!planeCache.has(geoKey))planeCache.set(geoKey,new T.PlaneGeometry(width,height));
- const mesh=new T.Mesh(cached?planeCache.get(geoKey):new T.PlaneGeometry(width,height),mat);mesh.position.set(...pos);mesh.rotation.y=rotation;mesh.userData.owned=!cached;parent.add(mesh);return mesh;
+export const box=(p,size,pos,color,rot=null,metal=0)=>shape(p,size.every(v=>v>=.17)&&Math.max(...size)<=5.2?'rounded':'box',size,pos,color,rot,metal);
+// One shared texture atlas replaces a separate GPU texture/material per label.
+let atlas,atlasMaterial,atlasX=0,atlasY=0,atlasRow=0;
+const atlasEntries=new Map();
+function labelAtlas(){
+ if(atlas)return;
+ const cv=document.createElement('canvas');cv.width=cv.height=2048;
+ atlas=new T.CanvasTexture(cv);atlas.colorSpace=T.SRGBColorSpace;
+ atlasMaterial=new T.MeshBasicMaterial({map:atlas});
+}
+export function label(parent,text,width,height,pos,{background='#274a57',color='#f9f3df',rotation=0}={}){
+ labelAtlas();const key=[text,width,height,background,color].join('|');let entry=atlasEntries.get(key);
+ if(!entry){const w=256,h=Math.max(28,Math.min(140,Math.ceil(w*height/width)));
+  if(atlasX+w>2048){atlasX=0;atlasY+=atlasRow;atlasRow=0;}
+  if(atlasY+h>2048)throw new Error('Label atlas capacity exceeded');
+  const c=atlas.image.getContext('2d');c.fillStyle=background;c.fillRect(atlasX,atlasY,w,h);c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.font=`800 ${Math.floor(h*.53)}px sans-serif`;c.fillText(text,atlasX+w/2,atlasY+h/2,w-14);
+  entry={x:atlasX,y:atlasY,w,h};atlasEntries.set(key,entry);atlasX+=w;atlasRow=Math.max(atlasRow,h);atlas.needsUpdate=true;
+ }
+ const geo=new T.PlaneGeometry(width,height),uv=geo.attributes.uv;
+ for(let i=0;i<uv.count;i++)uv.setXY(i,(entry.x+2+uv.getX(i)*(entry.w-4))/2048,1-(entry.y+entry.h-2-uv.getY(i)*(entry.h-4))/2048);
+ const mesh=new T.Mesh(geo,atlasMaterial);mesh.position.set(...pos);mesh.rotation.y=rotation;mesh.userData.owned=true;parent.add(mesh);return mesh;
 }
 export function makeProduct(id){
  const item=PRODUCTS.find(p=>p.id===id);if(!item)return new T.Group();id=item.base;
@@ -75,6 +92,7 @@ export function fixture(item,index){
  }else{
   frame(g,'#6d8276',1.85);box(g,[2.1,1.6,.075],[0,.95,-.5],'#c1be9c');shelfProducts(g,item.id,2);
  }
+ if(['coffee','sacks'].includes(item.fixture)){for(let row=0;row<2;row++)for(let col=0;col<4;col++){const p=makeProduct(item.id);p.position.set(-.76+col*.5,.38+row*.63,-.72);p.rotation.y=Math.PI;g.add(p);}for(const y of [.3,.93])box(g,[2.12,.06,.48],[0,y,-.73],'#98b4ad');}
  const high=['fruit','vegetables'].includes(item.fixture)?1.65:item.fixture==='deli'?1.9:2.44;
  label(g,(item.name+' / '+item.variant).toUpperCase(),1.9,.31,[0,high,.56],{background:item.color,color:'#263739',font:38});
  label(g,`${item.sku}  |  ${item.amount}  |  ${item.mark}`,1.75,.15,[0,.18,.57],{background:'#283e3e',color:'#d7d9c2',font:35});
@@ -82,54 +100,59 @@ export function fixture(item,index){
  label(g,(item.name+' / '+item.variant).toUpperCase(),1.9,.31,[0,high,-.58],{background:item.color,color:'#263739',font:38,rotation:Math.PI});
  return g;
 }
-function floorTexture(){const cv=document.createElement('canvas');cv.width=cv.height=256;const c=cv.getContext('2d');c.fillStyle='#8c9b91';c.fillRect(0,0,256,256);c.fillStyle='#a6aea0';c.fillRect(0,0,128,128);c.fillRect(128,128,128,128);c.strokeStyle='#758780';c.lineWidth=2;c.strokeRect(0,0,128,128);c.strokeRect(128,128,128,128);c.strokeRect(128,0,128,128);c.strokeRect(0,128,128,128);const t=new T.CanvasTexture(cv);t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(8,7.5);t.colorSpace=T.SRGBColorSpace;return t;}
 export function createMarket(stock){
- const g=new T.Group(),floorMat=new T.MeshStandardMaterial({map:floorTexture(),roughness:.88});floorMat.userData.owned=true;
- box(g,[L.width,.14,L.height],[L.width/2,-.09,L.height/2],floorMat);
- const wall='#344c50';for(const x of [0,L.width])box(g,[.18,3.8,L.height],[x,1.9,L.height/2],wall);for(const z of [0,L.height])box(g,[L.width,3.8,.18],[L.width/2,1.9,z],wall);
- box(g,[L.width,.12,L.height],[L.width/2,3.85,L.height/2],'#17252a');
- for(const w of L.walls){box(g,[w.w,3.65,w.h],[w.x,1.825,w.y],'#32464b');box(g,[w.w+.025,.13,w.h+.025],[w.x,.33,w.y],'#59706b');}
- // Beams, ducts and electrical conduits give corridors depth without adding clutter.
- for(const z of [2,10,14,22,28]){box(g,[28,.16,.18],[14,3.6,z],'#202e34');box(g,[27,.13,.25],[14,3.4,z+.3],'#465859');}
- for(const x of [13.65,14.35])box(g,[.055,.055,28],[x,3.18,15],'#657a76');
- const lights=[];
- for(const s of SECTORS){
-  for(const z of [s.y+2,s.y+7.7]){const x=s.x+6.5;box(g,[3,.09,.4],[x,3.42,z],'#17282f');box(g,[2.7,.03,.25],[x,3.36,z],material(s.color,0,true));lights.push({x,y:3,z,sector:s.id,color:s.color});}
-  const inward=s.x===0?Math.PI/2:-Math.PI/2,edge=s.gate.x,plateX=edge+(s.x===0?.14:-.14);
-  label(g,`${s.id} / ${s.name.toUpperCase()}`,2.15,.38,[plateX,2.95,s.gate.y],{background:'#152b32',color:s.color,font:36,rotation:inward});
-  for(const dz of [-1.37,1.37])box(g,[.26,2.8,.1],[edge,1.4,s.gate.y+dz],'#697c78');
-  box(g,[.3,.17,2.8],[edge,2.83,s.gate.y],material(s.color,0,true));
-  // Gate number is also readable from within the sector.
-  label(g,`${s.id} / SAÍDA INTERNA [E]`,1.9,.25,[edge+(s.x===0?-.15:.15),2.92,s.gate.y],{background:'#17352c',color:'#bdd9a1',font:34,rotation:-inward});
-  for(let k=0;k<2;k++){const z=s.y+3.8+k*4;label(g,`CORREDOR ${String(SECTORS.indexOf(s)*2+k+1).padStart(2,'0')}`,2.6,.4,[s.x+6.5,2.97,z+1.3],{background:'#233c42',color:s.color,font:40});}
+ const g=new T.Group();
+ box(g,[28,.12,28],[14,-.08,14],'#b5c7cc');
+ // Oversized ceramic tiles: geometry, no texture upload or per-tile draw calls after merging.
+ for(let x=0;x<28;x+=2)for(let z=0;z<28;z+=2)box(g,[1.97,.008,1.97],[x+1,-.01,z+1],(x+z)%4?'#ccd8d9':'#d8e1dd');
+ for(const x of [0,28])box(g,[.2,3.7,28],[x,1.85,14],'#83aeb8');
+ for(const z of [0,28])box(g,[28,3.7,.2],[14,1.85,z],'#83aeb8');
+ for(const x of [0,28])box(g,[.23,.55,28],[x,.28,14],'#3b7889');
+ box(g,[28,.15,28],[14,3.8,14],'#cad7d9');
+ for(const z of [3.8,10.5,19.5,26.8]){
+  box(g,[28,.18,.18],[14,3.55,z],'#77979e');
+  for(const x of [4,14,24]){box(g,[2,.12,.35],[x,3.53,z],'#5b7680');box(g,[1.8,.03,.25],[x,3.45,z],material('#f7efc9',0,true));}
  }
- stock.forEach((id,i)=>{const item=PRODUCTS.find(p=>p.id===id),f=fixture(item,i),s=L.shelves[i];f.position.set(s.x,0,s.y);g.add(f);});
- // A protected operator room, with tactile switches, rack and four monitors.
- box(g,[5,.9,.8],[4,.45,26.4],'#223d47');box(g,[5.1,.1,1],[4,.94,26.4],'#546764');
- for(let i=0;i<4;i++){const x=2.15+i*1.22;box(g,[1.05,.73,.13],[x,1.52,26.12],'#182c33');label(g,`${SECTORS[i].id} / ${SECTORS[i].name}`, .94,.51,[x,1.53,26.2],{background:'#10282f',color:SECTORS[i].color,font:42});box(g,[.08,.3,.1],[x,1.09,26.12],'#536967');
-  for(let j=0;j<3;j++){box(g,[.11,.055,.16],[x-.28+j*.23,1.02,26.65],j===0?'#cc9d54':'#678580');}}
- label(g,'CENTRAL / TURNO NOTURNO',5,.45,[4,2.75,25.15],{background:'#183239',color:'#b4c8ba',font:38});
- box(g,[1.2,2.5,.6],[.8,1.25,26.6],'#1e333d');for(let y=.4;y<2.4;y+=.24){box(g,[1,.06,.03],[.8,y,26.92],'#728385');box(g,[.045,.04,.04],[1.13,y+.06,26.94],material('#78d4bb',0,true));}
- label(g,'RÁDIO • ENERGIA • PORTAS',3.8,.25,[4,2.21,25.15],{background:'#223942',color:'#7ca5a5',font:30});
- // Main sorting conveyor, numbered routes, scanner and dispatch crates.
- box(g,[5,1,1],[19,.5,26],'#355158');box(g,[5.12,.08,1.1],[19,1.03,26],'#728882');box(g,[4.8,.04,.88],[19,1.095,26],'#182b32');
- for(let i=0;i<28;i++)box(g,[.02,.009,.88],[16.65+i*.17,1.121,26],'#657573');
- for(const x of [17,21])for(const z of [25.43,26.57])box(g,[.11,.86,.11],[x,.43,z],'#3b5256');
- for(const x of [18.6,19.4])box(g,[.1,.8,.1],[x,1.5,26.05],'#82928a');box(g,[.95,.1,.12],[19,1.9,26.05],'#cfa662');
- label(g,'TRIAGEM / INFORME O SÍMBOLO',4,.43,[19,2.66,26],{background:'#283d3e',color:'#d8b677',font:34});
- for(let i=0;i<4;i++){box(g,[.85,.75,.75],[23.7+(i%2)*1.05,.375,24.1+Math.floor(i/2)],'#8b7658');label(g,['FRIO','SECO','FRESCO','FRÁGIL'][i],.7,.25,[23.7+(i%2)*1.05,.5,24.49+Math.floor(i/2)],{background:'#4d5146',font:62});}
- box(g,[1.2,.9,.7],[22.5,.45,28],'#395b51');box(g,[.58,.36,.15],[22.5,1.13,28],'#1b3839');label(g,'CONFIRMAR',.55,.23,[22.5,1.15,27.9],{rotation:Math.PI,background:'#3b7159',font:55});
- label(g,'CAIXA / CONFIRMAÇÃO EM DUPLA',3.2,.35,[22.5,2.4,28.5],{rotation:Math.PI,background:'#21443d',color:'#d6c997',font:33});
- // Relay on the central crossing. Its changing code is private to the shopper.
- box(g,[.45,1.4,.38],[L.relay.x,.7,L.relay.y],'#465c60');box(g,[.52,.5,.4],[L.relay.x,1.55,L.relay.y],'#3a4f51');label(g,'REARME',.43,.15,[L.relay.x,1.59,L.relay.y+.21],{background:'#d1a666',color:'#253536',font:67});
- for(const z of [2,10,14,22,28]){box(g,[.08,.12,.18],[13.27,.2,z],material('#ce6150',0,true));box(g,[.08,.12,.18],[14.73,.2,z],material('#ce6150',0,true));}
- box(g,[1.7,2.7,.07],[26.5,1.35,29.88],'#28554c');for(const x of [25.62,27.38])box(g,[.1,2.8,.12],[x,1.4,29.8],material('#8ec79d',0,true));
- label(g,'SAÍDA',1.5,.33,[26.5,3.05,29.76],{background:'#3b7857',color:'#d6efca',rotation:Math.PI,font:72});
- label(g,'MERCADO DA MEIA-NOITE',6,.5,[14,3.1,.13],{color:'#c5ad7a',background:'#1a3036',font:43});
- return {root:g,lights};
+ // A glazed, independently illuminated control booth at the front of the shop.
+ for(const w of L.walls){box(g,[w.w,1.1,w.h],[w.x,.55,w.y],'#b7ddd6');box(g,[w.w,.12,w.h],[w.x,2.9,w.y],'#477784');
+  const along=w.w>w.h;for(let v=-1;v<=1;v++)box(g,[along?.07:w.w,1.8,along?w.h:.07],[w.x+(along?v*2:0),2,w.y+(along?0:v*1.6)],'#477784');}
+ label(g,'CENTRAL',3.7,.5,[3.5,3.05,22.15],{color:'#173e4c',background:'#c3eee0'});
+ label(g,'CENTRAL • RÁDIO E ENERGIA',4.5,.35,[3.5,2.6,22.12],{color:'#e4ffeb',background:'#3c787a',rotation:Math.PI});
+ box(g,[5,.9,.8],[3.5,.45,24.5],'#e7d9b4');box(g,[5.15,.11,1],[3.5,.98,24.5],'#52838c');
+ for(let i=0;i<4;i++){const x=1.65+i*1.2;box(g,[1.03,.7,.13],[x,1.49,24.22],'#244857');label(g,`${SECTORS[i].id} / ${SECTORS[i].name}`, .94,.51,[x,1.51,24.3],{background:'#d4f1e5',color:'#184f62'});box(g,[.1,.27,.1],[x,1.08,24.22],'#6c9091');for(let j=0;j<3;j++)shape(g,'cylinder',[.13,.045,.13],[x-.25+j*.24,1.06,24.75],j?'#eef3c9':'#f5a875');}
+ box(g,[1.2,2.2,.6],[.8,1.1,25],'#3d6876');for(let y=.4;y<2;y+=.28){box(g,[1,.06,.04],[.8,y,25.33],'#89bcb7');box(g,[.07,.06,.05],[1.12,y+.09,25.34],material('#adf7c0',0,true));}
+ for(const sector of SECTORS){
+  const {x,y}=sector.gate;box(g,[.48,1.15,.4],[x,.58,y],'#416b7b');box(g,[.56,.48,.43],[x,1.38,y],sector.color);
+  label(g,`SETOR ${sector.id}`, .5,.18,[x,1.48,y+.223],{background:sector.color,color:'#163f4a'});
+  label(g,'LER CÓDIGO',.48,.14,[x,1.25,y+.224],{background:'#284b5a',color:'#e7ffe8'});
+  label(g,`${sector.id} • ${sector.name.toUpperCase()}`,3.2,.5,[x,2.85,y],{background:sector.color,color:'#254d57'});
+  label(g,`${sector.id} • ${sector.name.toUpperCase()}`,3.2,.5,[x,2.85,y-.03],{rotation:Math.PI,background:sector.color,color:'#254d57'});
+ }
+ stock.forEach((id,i)=>{const spot=L.shelves[i];for(const [scale,color,height]of [[1.15,'#b5c5c5',.003],[1.06,'#9bb1b4',.006]])box(g,[spot.w*scale,.008,spot.h*scale],[spot.x,height,spot.y],color);const item=PRODUCTS.find(p=>p.id===id),f=fixture(item,i),s=L.shelves[i];f.position.set(s.x,0,s.y);f.rotation.y=s.rotation;g.add(f);});
+ // Parallel grocery gondolas and stocked reverse faces establish a recognizable open floor plan.
+ for(const s of L.decor){const f=new T.Group();frame(f,'#5b7f95');box(f,[2.1,1.8,.1],[0,1,-.45],'#a6bfd0');
+  for(let row=0;row<3;row++)for(let col=0;col<5;col++){const x=-.8+col*.4;box(f,[.26,.38,.23],[x,.52+row*.63,.08],['#e4b889','#92cfc4','#e3a19b','#9fb7d7'][col%4]);box(f,[.2,.11,.015],[x,.52+row*.63,.204],'#f5efce');}
+  label(f,'MERCEARIA',1.9,.25,[0,2.24,.55],{background:'#d9b3e6',color:'#384a59'});f.position.set(s.x,0,s.y);f.rotation.y=s.rotation;g.add(f);
+ }
+ for(const [n,x,z]of [[1,3,4.3],[2,9,4.3],[3,19,4.3],[4,24,11.5],[5,3,11],[6,7.5,11],[7,14.7,19],[8,20,19]])label(g,`${String(n).padStart(2,'0')}  ↓`,1,.42,[x,2.9,z],{background:'#3e667c',color:'#f3f5df'});
+ // Produce sacks, rounded waste bins and end-cap details stay out of walking lanes.
+ for(const x of [2,6]){shape(g,'cylinder',[.5,.65,.5],[x,.33,20],'#d6a977');shape(g,'sphere',[.23,.08,.22],[x,.67,20],'#eddec2');}
+ for(const x of [8.6,27]){shape(g,'cylinder',[.55,.85,.55],[x,.43,25.7],'#58978d');shape(g,'torus',[.55,.55,.55],[x,.84,25.7],'#2e5967',[Math.PI/2,0,0]);}
+ // Front checkout lane: arrival at the scanner on the left, payment and exit on the right.
+ box(g,[5,1,1],[18.8,.5,23.7],'#78a8b4');box(g,[5.1,.08,1.1],[18.8,1.04,23.7],'#d1e0d9');box(g,[4.8,.04,.87],[18.8,1.1,23.7],'#354e60');
+ for(let i=0;i<18;i++)box(g,[.022,.008,.87],[16.5+i*.26,1.125,23.7],'#668797');
+ for(const x of [18.5,19.3])box(g,[.1,.75,.1],[x,1.5,23.7],'#92bac1');box(g,[.91,.1,.12],[18.9,1.9,23.7],'#f1bd70');
+ label(g,'ESTEIRA • DEPOSITE E LEIA O SÍMBOLO',5,.43,[18.8,2.8,23.7],{rotation:Math.PI,background:'#f4c780',color:'#3a5460'});
+ for(let i=0;i<4;i++){const x=24+(i%2),z=21.5+Math.floor(i/2);box(g,[.85,.72,.75],[x,.36,z],'#c89d76');label(g,['FRIO','SECO','FRESCO','FRÁGIL'][i],.72,.25,[x,.5,z-.38],{rotation:Math.PI,background:'#638b9b'});}
+ box(g,[1.2,.9,.7],[23.5,.45,25.6],'#7eb9ad');box(g,[.58,.36,.14],[23.5,1.13,25.6],'#3e6976');label(g,'PAGAR',.5,.2,[23.5,1.16,25.51],{rotation:Math.PI,background:'#c8eed7',color:'#2b5f66'});
+ label(g,'CAIXA',1.8,.45,[23.5,2.65,25.6],{rotation:Math.PI,background:'#9ee0c0',color:'#25565a'});
+ box(g,[.52,1.6,.4],[L.relay.x,.8,L.relay.y],'#d9a275');label(g,'REARME',.5,.2,[L.relay.x,1.35,L.relay.y+.21],{background:'#fff0c4',color:'#6b534b'});
+ box(g,[2.4,2.8,.09],[26.5,1.4,27.88],'#5e9f9d');for(const x of [25.3,26.5,27.7])box(g,[.07,2.8,.13],[x,1.4,27.8],'#bcddd5');
+ label(g,'SAÍDA →',2.2,.45,[26.5,3.1,27.7],{background:'#aae6b9',color:'#2b6359',rotation:Math.PI});
+ label(g,'MERCADO DA MEIA-NOITE',8,.55,[14,3.25,.13],{color:'#f5f3d9',background:'#4d8699'});
+ const cart=makeCart();cart.position.set(L.cart.x,0,L.cart.y);g.add(cart);
+ return {root:g,lights:[]};
 }
-export function makeGate(sector){const g=new T.Group();g.position.set(sector.gate.x,0,sector.gate.y);
- for(let y=.3;y<2.7;y+=.22)box(g,[.12,.085,2.5],[0,y,0],'#82948f');for(const z of [-1.17,0,1.17])box(g,[.13,2.65,.065],[0,1.35,z],'#506869');return g;}
 export function makeCart(){
  const g=new T.Group(),metal=material('#9aaea7',.65);
  for(const x of [-.35,.35])for(const z of [-.44,.44]){shape(g,'cylinder',[.15,.07,.15],[x,.12,z],'#263337',[0,0,Math.PI/2]);box(g,[.04,.35,.04],[x,.3,z],metal);}
@@ -148,6 +171,7 @@ export function makeAvatar(index){
  const arms=[],legs=[];
  for(const side of [-1,1]){const arm=new T.Group();arm.position.set(side*.3,1.28,0);shape(arm,'cylinder',[.17,.35,.17],[0,-.14,0],shirt);shape(arm,'cylinder',[.13,.26,.13],[0,-.42,0],skin);shape(arm,'sphere',[.075,.092,.07],[0,-.56,0],skin);body.add(arm);arms.push(arm);
  const leg=new T.Group();leg.position.set(side*.13,.75,0);shape(leg,'cylinder',[.18,.58,.18],[0,-.27,0],'#344955');box(leg,[.21,.13,.33],[0,-.6,-.05],'#dbd5bf');body.add(leg);legs.push(leg);}
+ for(const part of [body,...arms,...legs]){const source=new T.Group();for(const child of [...part.children])if(child.isMesh)source.add(child);part.add(batchStatic(source,{chunked:false}));disposeOwned(source);}
  root.userData={body,arms,legs};return root;
 }
 export function animateAvatar(root,p,t){
@@ -164,10 +188,40 @@ export function animateAvatar(root,p,t){
  if(p.gesture==='crack'){arms[0].rotation.x=arms[1].rotation.x=-1.25;arms[0].rotation.z=-.3-wiggle;arms[1].rotation.z=.3+wiggle;}
  arms.forEach(arm=>arm.rotation.x*=-1);
 }
-// Repeated geometry/material pairs become instanced draw calls for mobile GPUs.
-export function batchStatic(root){
- root.updateMatrixWorld(true);const groups=new Map();root.traverse(node=>{if(!node.isMesh)return;const key=node.geometry.uuid+node.material.uuid;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(node);});
- const result=new T.Group();for(const nodes of groups.values()){if(nodes.length<2){const m=nodes[0];const clone=new T.Mesh(m.geometry,m.material);clone.matrix.copy(m.matrixWorld);clone.matrix.decompose(clone.position,clone.quaternion,clone.scale);clone.castShadow=m.castShadow;clone.receiveShadow=m.receiveShadow;clone.userData={...m.userData};result.add(clone);continue;}const instance=new T.InstancedMesh(nodes[0].geometry,nodes[0].material,nodes.length);nodes.forEach((m,i)=>instance.setMatrixAt(i,m.matrixWorld));instance.castShadow=true;instance.receiveShadow=true;instance.computeBoundingSphere();result.add(instance);}
- return result;
+// A small spatial batch per 7 m cell, vertex colors and one label atlas.
+// Geometry is merged once per round, so adding shelf detail does not add draw calls.
+export const worldUniforms={power:{value:0},blackout:{value:0},torch:{value:1},eye:{value:new T.Vector3()},look:{value:new T.Vector3(0,0,-1)}};
+function mergedMaterial(map=null){return new T.ShaderMaterial({uniforms:{...worldUniforms,atlas:{value:map}},vertexShader:`
+ attribute vec3 tint; attribute float glow;
+ varying vec3 vColor; varying vec3 vPos; varying vec3 vNormal; varying vec2 vUv; varying float vGlow;
+ void main(){vColor=tint;vGlow=glow;vUv=uv;vec4 world=modelMatrix*vec4(position,1.);vPos=world.xyz;vNormal=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*viewMatrix*world;}`,
+ fragmentShader:`
+ uniform sampler2D atlas;uniform float power;uniform float blackout;uniform float torch;uniform vec3 eye;uniform vec3 look;
+ varying vec3 vColor;varying vec3 vPos;varying vec3 vNormal;varying vec2 vUv;varying float vGlow;
+ void main(){
+ float booth=step(vPos.x,7.)*step(22.,vPos.z);
+ float sector=vPos.z<5.?(vPos.x<14.?1.:2.):(vPos.x>23.&&vPos.z<11.?2.:(vPos.x<9.&&vPos.z<21.?3.:(vPos.x>10.&&vPos.x<22.&&vPos.z<19.?4.:0.)));
+ float powered=(1.-step(.4,abs(sector-power)))*step(.5,power)*(1.-blackout);
+ vec3 delta=vPos-eye;float range=length(delta);
+ float cone=smoothstep(.79,.97,dot(normalize(delta),look))*max(0.,1.-range/11.)*torch;
+ float diffuse=.64+.36*max(0.,dot(normalize(vNormal),normalize(vec3(-.5,1.,.4))));
+ float light=mix(.42-blackout*.18+powered*.42,1.1,booth)+cone*.8;
+ vec3 base=vColor;
+ #ifdef LABEL_MAP
+ base*=texture2D(atlas,vUv).rgb;
+ #endif
+ gl_FragColor=vec4(base*mix(diffuse*light,1.,vGlow),1.);
+ #include <tonemapping_fragment>
+ #include <colorspace_fragment>
+ }`,defines:map?{LABEL_MAP:1}:{},toneMapped:false});}
+let solidBatchMaterial,labelBatchMaterial;
+export function batchStatic(root,{chunked=true}={}){
+ root.updateMatrixWorld(true);const batches=new Map(),normalMatrix=new T.Matrix3(),p=new T.Vector3(),n=new T.Vector3();
+ root.traverse(mesh=>{if(!mesh.isMesh)return;const mapped=!!mesh.material.map,key=(mapped?'labels':'solid')+(chunked?':'+Math.floor(mesh.matrixWorld.elements[12]/7)+':'+Math.floor(mesh.matrixWorld.elements[14]/7):'');
+  if(!batches.has(key))batches.set(key,{positions:[],normals:[],colors:[],uvs:[],glows:[],mapped});const b=batches.get(key),geo=mesh.geometry,index=geo.index,count=index?index.count:geo.attributes.position.count,color=mesh.material.color||new T.Color(1,1,1);normalMatrix.getNormalMatrix(mesh.matrixWorld);
+  for(let i=0;i<count;i++){const j=index?index.getX(i):i;p.fromBufferAttribute(geo.attributes.position,j).applyMatrix4(mesh.matrixWorld);n.fromBufferAttribute(geo.attributes.normal,j).applyMatrix3(normalMatrix).normalize();b.positions.push(p.x,p.y,p.z);b.normals.push(n.x,n.y,n.z);b.colors.push(color.r,color.g,color.b);b.uvs.push(geo.attributes.uv?.getX(j)||0,geo.attributes.uv?.getY(j)||0);b.glows.push(mesh.material.emissive?.getHex()?1:0);}
+ });
+ solidBatchMaterial??=mergedMaterial();if(atlas)labelBatchMaterial??=mergedMaterial(atlas);
+ const result=new T.Group();for(const b of batches.values()){const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(b.positions,3));geo.setAttribute('normal',new T.Float32BufferAttribute(b.normals,3));geo.setAttribute('tint',new T.Float32BufferAttribute(b.colors,3));geo.setAttribute('uv',new T.Float32BufferAttribute(b.uvs,2));geo.setAttribute('glow',new T.Float32BufferAttribute(b.glows,1));geo.computeBoundingSphere();const mesh=new T.Mesh(geo,b.mapped?labelBatchMaterial:solidBatchMaterial);mesh.userData.owned=true;result.add(mesh);}return result;
 }
 export function disposeOwned(root){root.traverse(node=>{if(node.material?.userData?.owned){node.material.map?.dispose();node.material.dispose();}if(node.userData.owned)node.geometry.dispose();if(node.isInstancedMesh)node.dispose();});}

@@ -16,12 +16,10 @@ function walk(g,id,target){const p=g.players.find(v=>v.id===id);for(const waypoi
 const run=(g,action,rest={})=>command(g,roles(g).operator,{action,stage:g.stage,...rest});
 function pickupOrder(g){
  const {shopper,operator}=roles(g),p=g.players.find(v=>v.id===shopper),order=viewFor(g,operator).order,target=PRODUCTS.find(v=>v.description===order.description),s=SECTORS.find(v=>v.id===order.sector);
- walk(g,shopper,{x:14,y:s.gate.y});look(p,s.gate);const reading=viewFor(g,shopper).observation;assert.equal(reading.kind,'gate');
- assert.equal(run(g,'power',{sector:s.id}),null);assert.equal(run(g,'gate',{code:reading.code}),null);
- const shelf=L.shelves[g.stock.indexOf(target.id)];walk(g,shopper,{x:shelf.x,y:shelf.y+1.3});look(p,shelf);interact(g,shopper);assert.equal(p.holding,target.id);
- // Drop power to cool down, then leave using the independent emergency release.
- run(g,'power',{sector:null});walk(g,shopper,{x:s.gate.x+(s.x===0?-1:1),y:s.gate.y});look(p,s.gate);interact(g,shopper);assert.ok(g.gates.find(v=>v.id===s.id).remaining>0);
- walk(g,shopper,{x:14,y:s.gate.y});walk(g,shopper,{x:18,y:27.4});look(p,L.belt);interact(g,shopper);assert.equal(g.pending.item,target.id);return {shopper,operator};
+ walk(g,shopper,{x:s.gate.x,y:s.gate.y+1.15});look(p,s.gate);const reading=viewFor(g,shopper).observation;assert.equal(reading.kind,'gate');
+ assert.equal(run(g,'brief'),null);assert.equal(viewFor(g,shopper).sharedBrief.description,order.description);assert.equal(run(g,'power',{sector:s.id}),null);assert.equal(run(g,'gate',{code:reading.code}),null);
+ const shelf=L.shelves[g.stock.indexOf(target.id)];walk(g,shopper,shelf.approach);look(p,shelf);interact(g,shopper);assert.equal(p.holding,target.id);
+ run(g,'power',{sector:null});walk(g,shopper,{x:L.belt.x,y:L.belt.y-1.35});look(p,L.belt);interact(g,shopper);assert.equal(g.pending.item,target.id);return {shopper,operator};
 }
 test('complete cooperative mission by physical movement, private readings, six deliveries, handoff and synchronized checkout',()=>{
  const g=createGame(people,1,seeded(23));g.nextEvent=10000;const firstOperator=roles(g).operator;
@@ -37,18 +35,20 @@ test('privacy: future orders, gate codes and cargo symbol are role- and proximit
  const g=createGame(people),{operator,shopper}=roles(g),a=viewFor(g,operator),b=viewFor(g,shopper);
  for(const v of [a,b])for(const secret of ['list','codes','cargoSymbol','resetCode','routeMap','lastRadio','checkoutUntil'])assert.equal(Object.hasOwn(v,secret),false,secret);
  assert.ok(a.order.description);assert.equal(b.order,null);assert.equal(b.routing,null);assert.equal(a.observation,null);assert.equal(b.observation,null);assert.equal(Object.hasOwn(a.order,'id'),false);
- const p=g.players.find(p=>p.id===shopper);Object.assign(p,{x:14,y:6});look(p,SECTORS[0].gate);assert.equal(viewFor(g,shopper).observation.code,g.codes.A);assert.equal(viewFor(g,operator).observation,null);
+ const p=g.players.find(p=>p.id===shopper);Object.assign(p,{x:SECTORS[0].gate.x,y:SECTORS[0].gate.y+1.1});look(p,SECTORS[0].gate);assert.equal(viewFor(g,shopper).observation.code,g.codes.A);assert.equal(viewFor(g,operator).observation,null);
  p.y=10;assert.equal(viewFor(g,shopper).observation,null);assert.equal(Object.hasOwn(a.players[0],'input'),false);
 });
 test('operator command permission, station distance, stale stage and invalid parameters',()=>{
  const g=createGame(people),{shopper,operator}=roles(g);assert.match(command(g,shopper,{action:'power',sector:'A',stage:0}),/Somente/);assert.match(command(g,operator,{action:'power',sector:'A',stage:3}),/mudou/);assert.match(run(g,'power',{sector:'bad'}),/desconhecido/);
- assert.match(run(g,'gate',{code:'123'}),/Energize/);g.players.find(p=>p.id===operator).x=12;assert.match(run(g,'power',{sector:'A'}),/console/);assert.equal(g.power,null);
+ assert.match(run(g,'gate',{code:'123'}),/Ligue/);g.players.find(p=>p.id===operator).x=12;assert.match(run(g,'power',{sector:'A'}),/console/);assert.equal(g.power,null);
 });
-test('one circuit, closed gate collision, timed closure, emergency escape, and no crushing in doorway',()=>{
- const g=createGame(people);run(g,'power',{sector:'A'});run(g,'gate',{code:'000'});assert.equal(g.errors,1);assert.equal(g.time,588);assert.ok(collides(13,6,L,g));run(g,'gate',{code:g.codes.A});assert.equal(collides(13,6,L,g),false);
- run(g,'power',{sector:'B'});assert.equal(g.power,'B');for(let i=0;i<21;i++)tick(g,1);assert.ok(collides(13,6,L,g));
- const p=g.players.find(p=>p.id===roles(g).shopper);Object.assign(p,{x:12,y:6});look(p,SECTORS[0].gate);interact(g,p.id);assert.equal(g.gates[0].remaining,5);
- p.x=13;for(let i=0;i<6;i++)tick(g,1);assert.ok(g.gates[0].remaining>0);p.x=14;tick(g,1);assert.equal(g.gates[0].remaining,0);
+test('sector access needs power and a code, expires, and never traps shoppers in aisles',()=>{
+ const g=createGame(people),p=g.players[1],s=L.shelves[0];run(g,'power',{sector:'A'});run(g,'gate',{code:'000'});assert.equal(g.errors,1);assert.equal(g.time,588);
+ Object.assign(p,s.approach);look(p,s);interact(g,p.id);assert.equal(p.holding,null);
+ run(g,'gate',{code:g.codes.A});interact(g,p.id);assert.equal(p.holding,'milk');interact(g,p.id);assert.equal(p.holding,null);
+ for(let i=0;i<41;i++)tick(g,1);assert.equal(g.gates[0].remaining,0);interact(g,p.id);assert.equal(p.holding,null);
+ for(const shelf of L.shelves)assert.ok(route(L.spawns[1],shelf.approach,g).length>0);
+ run(g,'power',{sector:'B'});assert.equal(g.power,'B');
 });
 test('wrong variant, route and timed-out cargo are recoverable; none advance the order',()=>{
  const g=createGame(people,1,seeded(1));g.nextEvent=10000;const {shopper,operator}=pickupOrder(g),p=g.players.find(v=>v.id===shopper),good=g.pending.item;
@@ -56,11 +56,11 @@ test('wrong variant, route and timed-out cargo are recoverable; none advance the
  g.pending.item=PRODUCTS.find(v=>v.base===PRODUCTS.find(x=>x.id===good).base&&v.id!==good).id;run(g,'route',{route:correct});assert.equal(g.stage,0);assert.equal(g.errors,2);interact(g,shopper);interact(g,shopper);g.pending.remaining=.1;tick(g,.2);assert.equal(g.pending.status,'rejected');assert.equal(g.errors,3);
 });
 test('products require correct sector power and only shopper can collect',()=>{
- const g=createGame(people),p=g.players.find(p=>p.id===roles(g).shopper),op=g.players.find(p=>p.id===roles(g).operator),s=L.shelves[0];Object.assign(p,{x:s.x,y:s.y+1.3});look(p,s);interact(g,p.id);assert.equal(p.holding,null);run(g,'power',{sector:'A'});interact(g,p.id);assert.equal(p.holding,'milk');Object.assign(op,{x:s.x,y:s.y+1.3});look(op,s);interact(g,op.id);assert.equal(op.holding,null);
+ const g=createGame(people),p=g.players.find(p=>p.id===roles(g).shopper),op=g.players.find(p=>p.id===roles(g).operator),s=L.shelves[0];Object.assign(p,{x:s.x,y:s.y+1.3});look(p,s);interact(g,p.id);assert.equal(p.holding,null);run(g,'power',{sector:'A'});run(g,'gate',{code:g.codes.A});interact(g,p.id);assert.equal(p.holding,'milk');Object.assign(op,{x:s.x,y:s.y+1.3});look(op,s);interact(g,op.id);assert.equal(op.holding,null);
 });
 test('overload requires a private relay reading and operator reset, or automatic cooldown',()=>{
  const g=createGame(people);run(g,'power',{sector:'A'});beginEvent(g);assert.equal(g.power,null);assert.match(run(g,'power',{sector:'A'}),/bloqueada/);const p=g.players.find(p=>p.id===roles(g).shopper);Object.assign(p,{x:L.relay.x,y:L.relay.y+1});look(p,L.relay);const code=viewFor(g,p.id).observation.code;assert.ok(code);assert.equal(run(g,'reset',{code}),null);assert.equal(g.event,null);assert.equal(g.eventCount,1);assert.equal(g.heat,20);
- beginEvent(g);tick(g,18);assert.equal(g.event,null);assert.equal(g.heat,25);g.nextEvent=100;g.heat=99.9;run(g,'power',{sector:'D'});tick(g,.2);assert.equal(g.event.type,'overload');
+ beginEvent(g);tick(g,18);assert.equal(g.event,null);assert.equal(g.heat,25);g.stage=1;g.nextEvent=100;g.heat=99.9;run(g,'power',{sector:'D'});tick(g,.2);assert.equal(g.event.type,'overload');
 });
 test('radio sanitizes length, rate-limits messages, retains eight and pauses with disconnect',()=>{
  const g=createGame(people);assert.ok(radio(g,'one',''));assert.ok(radio(g,'one','x'.repeat(141)));assert.equal(radio(g,'one','A: 123'),null);assert.ok(radio(g,'one','spam'));for(let i=0;i<9;i++){tick(g,.8);assert.equal(radio(g,'two','Mensagem '+i),null);}assert.equal(g.radio.length,8);g.players[1].connected=false;assert.ok(radio(g,'one','pausado'));
@@ -71,7 +71,7 @@ test('checkout needs fresh confirmations at both posts; disconnected simulation 
  beginEvent(g);const before=JSON.stringify(g);g.players[0].connected=false;const t=g.time;tick(g,3);assert.equal(g.time,t);g.players[0].connected=true;g.time=.1;tick(g,.2);assert.equal(g.status,'lost');assert.equal(viewFor(g,'one').result.answers.length,6);
 });
 test('finite movement, no tunneling, operator remains inside control room, every stock accessible with open gates',()=>{
- const g=createGame(people);g.nextEvent=10000;setInput(g,'one',10000,-10000,1000,100,5);assert.ok(Math.hypot(g.players[0].input.x,g.players[0].input.y)<=1.0001);assert.equal(g.players[0].pitch,1.05);for(let i=0;i<600;i++)tick(g,1/60);assert.ok(inside(g.players[0],{x:0,y:25,w:8,h:5}));setInput(g,'one',NaN,Infinity);assert.ok(Number.isFinite(g.players[0].input.x));
- const p={x:14,y:6};move(p,-20,0,L,g);assert.ok(p.x>13.3);g.gates.forEach(v=>v.remaining=100);for(const s of L.shelves)assert.ok(route(L.spawns[1],{x:s.x,y:s.y+1.3},g).length>0);
+ const g=createGame(people);g.nextEvent=10000;setInput(g,'one',10000,-10000,1000,100,5);assert.ok(Math.hypot(g.players[0].input.x,g.players[0].input.y)<=1.0001);assert.equal(g.players[0].pitch,1.05);for(let i=0;i<600;i++)tick(g,1/60);assert.ok(inside(g.players[0],{x:0,y:22,w:7,h:6}));setInput(g,'one',NaN,Infinity);assert.ok(Number.isFinite(g.players[0].input.x));
+ const p={x:14,y:9};move(p,-20,0,L,g);assert.ok(p.x>13.3);for(const s of L.shelves)assert.ok(route(L.spawns[1],s.approach,g).length>0);
  for(let i=0;i<100;i++){const r=createGame(people,1+i%2,seeded(i));assert.equal(new Set(r.list).size,6);assert.ok(r.list.every(id=>r.stock.includes(id)));assert.equal(new Set(Object.values(r.routeMap)).size,4);assert.equal(Object.keys(r.codes).length,4);assert.equal(new Set(r.stock).size,16);}
 });

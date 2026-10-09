@@ -2,10 +2,20 @@ export const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function roles(g){const operator=g.players[(g.round-1+(g.stage>=3?1:0))%2],shopper=g.players.find(p=>p.id!==operator.id);return {operator:operator.id,shopper:shopper.id};}
 export function inside(p,s){return p.x>s.x&&p.x<s.x+s.w&&p.y>s.y&&p.y<s.y+s.h;}
+const collisionCache=new WeakMap();
 export function collides(x,y,level,state={},r=.27){
  if(x<r||y<r||x>level.width-r||y>level.height-r)return true;
- const obstacles=[...level.shelves.map(s=>({...s,...level.shelfSize})),...level.walls,...level.obstacles,...(state.gates||[]).filter(g=>g.remaining<=0)];
- return obstacles.some(o=>Math.abs(x-o.x)<o.w/2+r&&Math.abs(y-o.y)<o.h/2+r);
+ let obstacles=collisionCache.get(level);
+ if(!obstacles){obstacles=[...level.shelves.map(s=>({x:s.x,y:s.y,w:s.w??level.shelfSize.w,h:s.h??level.shelfSize.h})),...level.walls,...level.obstacles];collisionCache.set(level,obstacles);}
+ for(const o of obstacles)if(Math.abs(x-o.x)<o.w/2+r&&Math.abs(y-o.y)<o.h/2+r)return true;
+ return false;
+}
+export const STEP=1/60;
+export function stepPlayer(p,input,level,dt=STEP){
+ const speed=p.holding?2.7:3.2,blend=1-Math.exp(-dt*16);
+ p.vx+=(input.x*speed-p.vx)*blend;p.vy+=(input.y*speed-p.vy)*blend;
+ move(p,p.vx*dt,p.vy*dt,level);
+ if(Number.isFinite(input.yaw))p.yaw=input.yaw;if(Number.isFinite(input.pitch))p.pitch=input.pitch;
 }
 export function move(entity,dx,dy,level,state={}){
  const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/.15));
@@ -19,7 +29,7 @@ export function actionFor(g,p,level){
  if(g.checkedOut&&facing(p,level.exit,2))return {type:'exit',label:'Concluir a compra'};
  if(g.stage>=g.total&&facing(p,level.checkout,1.9))return {type:'checkout',label:'Confirmar compra com a central (4 s)'};
  const gate=(g.gates||[]).find(v=>facing(p,v,1.9));
- if(gate){const sector=g.sectors?.find(s=>s.id===gate.id);if(sector&&inside(p,sector))return {type:'egress',gate:gate.id,label:'Acionar saída de emergência'};return {type:'read',label:'Leia o código e avise a central'};}
+ if(gate)return {type:'read',label:'Transmitir código do setor '+gate.id};
  if(facing(p,level.relay,1.7)&&g.event)return {type:'read',label:'Leia o código de rearme e avise a central'};
  if(facing(p,level.belt,1.95)){if(p.holding&&!g.pending)return {type:'deposit',label:'Colocar carga na esteira'};if(!p.holding&&g.pending?.status==='rejected')return {type:'recover',label:'Retirar carga devolvida'};if(g.pending)return {type:'read',label:'Informe o símbolo da carga à central'};}
  const shelf=nearestShelf(p,level);if(shelf>=0)return p.holding?{type:'return',shelf,label:'Devolver produto'}:{type:'pickup',shelf,label:'Pegar produto'};

@@ -18,21 +18,27 @@ export const PRODUCTS=[
  product('rice-brown','rice','Arroz','Integral','1 kg','TRIÂNGULO','#b99c73','sacks','D','Grãos que acompanham o feijão. Integral, 1 quilo, selo triangular.','🍚')
 ].map((p,i)=>({...p,sku:`M${String(i+1).padStart(2,'0')}`}));
 export const SECTORS=[
- {id:'A',name:'Frios',color:'#6bb8ce',x:0,y:0,w:13,h:11,gate:{x:13,y:6,w:.22,h:2.6},aisles:'01 / 02'},
- {id:'B',name:'Padaria e granja',color:'#d6aa71',x:15,y:0,w:13,h:11,gate:{x:15,y:6,w:.22,h:2.6},aisles:'03 / 04'},
- {id:'C',name:'Hortifrúti',color:'#99b982',x:0,y:13,w:13,h:10,gate:{x:13,y:18,w:.22,h:2.6},aisles:'05 / 06'},
- {id:'D',name:'Estoque e secos',color:'#bd957e',x:15,y:13,w:13,h:10,gate:{x:15,y:18,w:.22,h:2.6},aisles:'07 / 08'}
+ {id:'A',name:'Frios',color:'#74d6e5',x:0,y:0,w:13,h:5,gate:{x:12.2,y:2.6,w:.5,h:.5},aisles:'01 / 02'},
+ {id:'B',name:'Padaria e granja',color:'#ffc779',x:17,y:0,w:11,h:11,gate:{x:23,y:3.6,w:.5,h:.5},aisles:'03 / 04'},
+ {id:'C',name:'Hortifrúti',color:'#a7dc83',x:0,y:10,w:9,h:11,gate:{x:8.4,y:17,w:.5,h:.5},aisles:'05 / 06'},
+ {id:'D',name:'Mercearia',color:'#dba4ef',x:10,y:5,w:12,h:14,gate:{x:21,y:14.8,w:.5,h:.5},aisles:'07 / 08'}
 ];
-const walls=[];
-for(const s of SECTORS){const edge=s.id==='A'||s.id==='C'?13:15;for(const [start,end]of [[s.y,s.gate.y-1.3],[s.gate.y+1.3,s.y+s.h]])walls.push({x:edge,y:(start+end)/2,w:.22,h:end-start});for(const y of [s.y,s.y+s.h])if(y>0)walls.push({x:s.x+s.w/2,y,w:s.w,h:.22});}
-walls.push({x:4,y:25,w:8,h:.18},{x:8,y:27.5,w:.18,h:5});
-export const SUPERMARKET={id:'supermarket',name:'Mercado da Meia-noite',width:28,height:30,
- shelves:PRODUCTS.map((p,i)=>{const s=SECTORS.find(s=>s.id===p.sector),j=i%4;return {x:s.x+4+(j%2)*5,y:s.y+3.8+Math.floor(j/2)*4,sector:s.id,aisle:Math.floor(i/2)+1};}),
- shelfSize:{w:2.2,h:1.1},walls,obstacles:[{x:19,y:26,w:5,h:1},{x:4,y:26.4,w:5,h:.8},{x:22.5,y:28,w:1.2,h:.7},{x:12,y:11.45,w:.52,h:.4},{x:.8,y:26.6,w:1.2,h:.6},{x:24.22,y:24.6,w:1.9,h:1.75},{x:23.8,y:28.5,w:.9,h:1.1}],
- console:{x:4,y:27.2},belt:{x:18,y:26},checkout:{x:22.5,y:27.1},exit:{x:26.5,y:29},relay:{x:12,y:11.45},
- cart:{x:23.8,y:28.5},spawns:[{x:4,y:28.2},{x:14,y:26.5}],operatorBounds:{x:.4,y:25.5,w:7.2,h:4.1}
+const positions=[
+ [3,1.2,0],[5.5,1.2,0],[8,1.2,0],[10.5,1.2,0],
+ [19,1.2,0],[21.6,1.2,0],[26,6,-Math.PI/2],[26,9,-Math.PI/2],
+ [3,13.5,0],[6,13.5,0],[3,17,0],[6,17,0],
+ [12.5,9,Math.PI/2],[12.5,13,Math.PI/2],[18,9,Math.PI/2],[18,13,Math.PI/2]
+];
+const decor=[12.5,18].flatMap(x=>[6,16].map(y=>({x,y,w:1.1,h:2.2,rotation:Math.PI/2})));
+export const SUPERMARKET={id:'supermarket',name:'Mercado da Meia-noite',width:28,height:28,
+ shelves:PRODUCTS.map((p,i)=>{const [x,y,rotation]=positions[i],side=rotation!==0;return {x,y,rotation,w:side?(p.sector==='D'?1.9:1.1):2.2,h:side?2.2:1.1,sector:p.sector,aisle:Math.floor(i/2)+1,approach:{x:x+Math.sin(rotation)*(p.sector==='D'?1.5:1.35),y:y+Math.cos(rotation)*1.35}};}),
+ shelfSize:{w:2.2,h:1.1},decor,
+ walls:[{x:3.5,y:22,w:7,h:.18},{x:7,y:25,w:.18,h:6}],
+ obstacles:[...decor,...SECTORS.map(s=>s.gate),{x:18.8,y:23.7,w:5,h:1},{x:3.5,y:24.5,w:5,h:.8},{x:23.5,y:25.6,w:1.2,h:.7},{x:10,y:20,w:.52,h:.4},{x:.8,y:25,w:1.2,h:.6},{x:24.5,y:22,w:2,h:1.8},{x:24.4,y:26.3,w:.9,h:1.1}],
+ console:{x:3.5,y:25.3},belt:{x:17.5,y:23.7},checkout:{x:23.5,y:24.7},exit:{x:26.5,y:27.3},relay:{x:10,y:20},
+ cart:{x:24.4,y:26.3},spawns:[{x:3.5,y:26.3},{x:10,y:25.2}],operatorBounds:{x:.4,y:22.4,w:6.2,h:5.2}
 };
 export const LEVELS={supermarket:SUPERMARKET};
 export const SYMBOLS=['◆','●','▲','✚'];
 export const ROUTES=['FRIO','SECO','FRESCO','FRÁGIL'];
-export const EVENTS={overload:{name:'Sobrecarga',hint:'Comprador: leia o código do painel no cruzamento central. Operador: rearme o circuito.',duration:18}};
+export const EVENTS={overload:{name:'Sobrecarga',hint:'Comprador: leia o painel de rearme junto à central. Operador: digite o código.',duration:18}};

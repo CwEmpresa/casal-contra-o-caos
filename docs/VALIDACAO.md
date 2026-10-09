@@ -1,37 +1,46 @@
-# Validação v3
+# Validação v4
 
-Data: 7 de outubro de 2026. Ambiente: Node.js 24.19.0.
+8 de outubro de 2026. Node.js 24.19.0.
 
-## Executado
+## Verificações executadas
 
-`npm test`: **15 testes aprovados**.
+`npm test`: 19 testes aprovados.
 
-- Partida completa: seis entregas por movimentação física com colisões, código lido na porta, expositor energizado, saída de emergência, símbolo local da carga, rota escolhida pela central, troca de postos, confirmação em dupla e saída.
-- Projeção privada: pedidos futuros e códigos internos ausentes dos snapshots; leituras limitadas ao papel, proximidade e olhar; tabela só na central.
-- Permissões e comandos inválidos: papel, distância do console, pedido desatualizado e circuito inexistente.
-- Energia única, colisão com grade fechada, duração da abertura, saída interna e proteção contra fechamento sobre jogador.
-- Variante errada, rota errada e tempo de esteira esgotado; carga recuperável sem avanço indevido.
-- Coleta permitida apenas ao Comprador com energia no setor correto.
-- Sobrecarga, código local de rearme, permissão do Operador e resfriamento automático.
-- Rádio: tamanho, intervalo por remetente, histórico e pausa durante desconexão.
-- Confirmações de caixa dentro da janela, rejeição de confirmação expirada, pausa e derrota por tempo.
-- Movimento finito, vetores normalizados, paredes, ausência de atravessamento de grade, isolamento físico da central e acesso a todos os expositores. Cem listas sorteadas sem itens inexistentes/repetidos e tabelas completas.
-- Geometria de 16 variantes e do cenário com matrizes finitas; agrupamento em instâncias reduz os objetos desenhados e mantém menos de 350 grupos/meshes estáticos. Isso não mede FPS.
-- Animação básica de caminhada e de produto na mão.
-- WebSockets reais: criar/entrar, rejeitar terceiro jogador, início pelo anfitrião, snapshots privados, comandos, rádio, movimento, desconexão, reconexão, token inválido, replay e encerramento.
-- HTTP: cliente, módulos Three, healthcheck, arquivos internos e traversal bloqueados; origem WebSocket externa rejeitada.
-- Interface: inicialização do módulo real sobre adaptador de DOM, correspondência dos IDs do HTML, botões da central, rádio, texto sem injeção HTML, troca de papel, leituras e resultado. Renderizador/controles são substituídos por adaptadores nesse teste.
+- Partida completa com seis entregas por movimentação física, colisões, leitura privada dos códigos e símbolos, energia, liberação dos produtos, troca de postos, pagamento sincronizado e saída.
+- Acesso a todos os expositores na planta aberta, sem exigir abertura de grades; colisões de prateleiras rotacionadas e isolamento da central.
+- Privacidade por papel/proximidade; permissões do console; rejeição de comandos inválidos e de pedido antigo.
+- Temporizador de retirada; energia única; recuperação de produto, rota e prazo incorretos; sobrecarga e rearme.
+- Rádio, confirmação de caixa, desconexão e fim de tempo.
+- Movimento previsto com atraso simulado de 200 ms: reaplicação dos comandos não confirmados sem erro acumulado no cenário testado.
+- Limites de lotes, normalização, rejeição de valores inválidos e orçamento de tempo contra aceleração por envio excessivo.
+- Pausa por disponibilidade/orientação: relógios congelam e movimento pendente é descartado.
+- WebSockets reais: criar/entrar/iniciar, rejeitar terceiro jogador, movimento, rádio, privacidade, reconexão, replay e encerramento.
+- Protocolo mobile por WebSockets: entradas processadas antes da interação, coleta, ID oculto da central, pausa e retomada.
+- HTTP e módulos locais; bloqueio de arquivos internos/traversal e rejeição de origem WebSocket externa.
+- Módulo real da interface executado sobre adaptador de DOM: controles existentes no HTML, introdução por posto, envio de pedido, teclado/central, rádio sem interpretar HTML, troca de papel, leitura, retrato/paisagem e resultados. Renderizador e controles são substituídos por adaptadores nesse teste.
+- Geometria finita para 16 variantes, cenário e animação de personagem.
 
-`npm run check`: módulos JavaScript verificados com `node --check`.
+`npm run check`: todos os módulos JavaScript com sintaxe válida.
 
-O problema de passagem estreita causado pelo painel de rearme foi detectado no teste de acesso físico. O painel foi reposicionado junto à parede do cruzamento; acesso e partida completa passaram após a correção.
+## Orçamento gráfico e inspeção
 
-## Limites desta verificação
+Comparação pela geometria gerada com o mesmo Three.js instalado:
 
-**Não houve execução de WebGL em navegador real nesta sessão.** Os testes do DOM e dos modelos não executam layout CSS, shaders, texturas na GPU, sombras, pointer lock ou multitouch. A iluminação foi alterada no código e os modelos foram validados estruturalmente, mas ainda é necessário jogar em aparelhos reais para avaliar a aparência, a fluidez e a legibilidade final.
+| Medida | v3 | v4 |
+| --- | ---: | ---: |
+| Grupos estáticos no cenário completo | 205 | 33 |
+| Triângulos do cenário v4 | — | 82.768 |
+| Texturas de rótulos na v4 | — | 1 atlas 2048² |
+| Sombras dinâmicas | Lanterna | Nenhuma |
 
-Verificar com duas pessoas: iluminação, leitura de embalagens, controles simultâneos em celular, painel em retrato/paisagem, teclado virtual, áudio Safari e reconexão entre redes. A dificuldade inicial (10 minutos, seis entregas, portas de 20/14 segundos) é um ponto de partida sem balanceamento por playtest humano.
+A contagem de grupos não equivale a FPS. A geometria é agrupada por área para permitir descarte fora da câmera. Personagem, mãos, carga e destaque adicionam desenhos dinâmicos.
 
-O iniciador de porta não mudou nesta versão. Na v2, foi exercitado em Linux com uma porta ocupada: escolheu outra porta e respondeu 200 em `/health`. O `.bat` não foi executado em Windows neste ambiente.
+Os dois shaders do cenário (cor e atlas) foram compilados e ligados em EGL/OpenGL Mesa 25.2.8, com rasterização por software llvmpipe. A geometria e o atlas reais foram renderizados em quatro vistas 844 × 390: entrada, corredor, frios e central. As imagens foram inspecionadas, incluindo rótulos e iluminação própria da central. Esse ensaio adapta o invólucro do shader para OpenGL e não executa a integração WebGL/Three.js no navegador.
 
-Não houve teste de carga nem publicação do servidor. Salas continuam em memória de uma instância. O pacote é código executável localmente; consulte `PUBLICAR.md` para hospedá-lo.
+## Limites
+
+Não foi possível executar o navegador local: o download do Chromium retornou arquivos inválidos, e o navegador remoto não alcançou o servidor local. Portanto, **não houve medição de FPS em celular nem validação visual do layout CSS, pointer lock ou multitouch em navegador real**. O ensaio EGL confirma geometria/material fora do navegador; não substitui esse teste.
+
+Antes de considerar a versão final para aparelhos: testar Android/Chrome e iPhone/Safari em paisagem, direcional e olhar simultâneos, interface da central com rolagem interna, rádio/teclado, rotação com diálogo aberto, tela cheia quando suportada e reconexão. Os alvos 30/60 FPS são limites de renderização, não garantias de desempenho. Use Econômico no menu se necessário.
+
+A dificuldade (dez minutos, seis entregas, liberação 40/30 s) ainda exige avaliação da dupla. Não houve teste de carga, execução do iniciador Windows nem publicação de servidor nesta atualização. O pacote mantém a hospedagem Node/WebSocket descrita em PUBLICAR.md.
