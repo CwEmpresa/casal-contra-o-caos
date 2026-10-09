@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createGame,viewFor,command,radio} from '../server/game.js';
+import {createGame,viewFor,command,radio,interact} from '../server/game.js';
+import {SUPERMARKET as L} from '../shared/levels.js';
 // A DOM adapter exercises real UI handlers and snapshots. It does not render WebGL or CSS.
 class Element{
  constructor(id='',tagName='DIV'){Object.assign(this,{id,tagName,children:[],dataset:{},style:{},value:'',hidden:false,disabled:false,open:false,checked:true,textContent:'',scrollHeight:0,scrollTop:0});const set=new Set();this.classList={toggle:(v,force)=>{const add=force??!set.has(v);if(add)set.add(v);else set.delete(v);return add;},contains:v=>set.has(v)};}
@@ -19,14 +20,21 @@ test('client initializes all real HTML controls and drives central/radio UI thro
  export class Controls { constructor(o){this.yaw=0;this.options=o;globalThis.__ui.controls=this;}read(){return {x:0,y:0};}reset(){}unlock(){} }
  export class Sounds { constructor(){this.enabled=true;}unlock(){}play(){}toggle(){} }`);
  try{
-  let source=await readFile(new URL('../client/main.js',import.meta.url),'utf8');for(const path of ['./network/connection.js','./game/renderer.js','./game/controls.js','./game/audio.js'])source=source.replace(JSON.stringify(path),JSON.stringify(mock)).replace("'"+path+"'",JSON.stringify(mock));for(const file of ['levels','geometry'])source=source.replace("'/shared/"+file+".js'",JSON.stringify(new URL('../shared/'+file+'.js',import.meta.url).href));
+  let source=await readFile(new URL('../client/main.js',import.meta.url),'utf8');for(const path of ['./network/connection.js','./game/renderer.js','./game/controls.js','./game/audio.js'])source=source.replace(JSON.stringify(path),JSON.stringify(mock)).replace("'"+path+"'",JSON.stringify(mock));for(const file of ['levels','geometry','cargo'])source=source.replace("'/shared/"+file+".js'",JSON.stringify(new URL('../shared/'+file+'.js',import.meta.url).href));
   try{await import(data(source));}catch(e){throw new Error(e.message);}
   const {net,renderer}=globalThis.__ui,el=id=>elements.get(id),emit=(type,detail)=>net.dispatchEvent(new CustomEvent(type,{detail})),g=createGame([{id:'one',name:'Ana'},{id:'two',name:'Leo'}]);
   const snapshot=()=>emit('state',{room:{code:'ABCDE',host:'one',players:g.players,game:viewFor(g,net.session.id)}});emit('status','online');snapshot();assert.equal(el('intro-dialog').open,true);el('ready-button').onclick();assert.equal(el('intro-dialog').open,false);assert.deepEqual(net.sent.at(-1),{type:'view',ready:true});
-  assert.equal(el('operator-tools').hidden,false);assert.ok(el('order-description').textContent.length>10);assert.equal(el('power-buttons').children.length,6);assert.equal(el('route-map').children.length,4);
+  assert.equal(el('operator-tools').hidden,false);assert.ok(el('order-description').textContent.length>10);assert.equal(el('power-buttons').children.length,6);assert.equal(el('route-buttons').children.length,4);
   el('share-order').onclick();assert.equal(net.sent.at(-1).action,'brief');el('power-buttons').children[0].onclick();assert.deepEqual(net.sent.at(-1),{type:'command',action:'power',stage:0,sector:'A'});el('gate-code').value='123';el('gate-form').onsubmit({preventDefault(){}});assert.equal(net.sent.at(-1).code,'123');
   el('radio-input').value='Código A: 123';el('radio-form').onsubmit({preventDefault(){}});assert.equal(net.sent.at(-1).type,'radio');assert.equal(el('radio-input').value,'');
   radio(g,'two','<img src=x onerror=alert(1)>');snapshot();assert.equal(el('radio-log').children[0].children[1].textContent,'<img src=x onerror=alert(1)>');
+  // Reproduce the screenshot: rejected cargo with sector B still powered.
+  g.pending={item:g.list[0],status:'rejected',remaining:0,reason:'timeout'};g.power='B';snapshot();
+  assert.equal(el('route-section').hidden,false);assert.match(el('cargo-status-title').textContent,/Carga devolvida/);assert.match(el('cargo-status-detail').textContent,/prazo.*esgotou/);assert.match(el('cargo-status-detail').textContent,/retirar.*deposit/);assert.ok(el('route-buttons').children.every(b=>b.disabled));assert.equal(el('power-belt').hidden,true);
+  const shopper=g.players[1];Object.assign(shopper,{x:L.belt.x,y:L.belt.y-1.35,yaw:Math.PI});interact(g,shopper.id);interact(g,shopper.id);snapshot();
+  assert.equal(el('power-belt').hidden,false);assert.match(el('cargo-status-title').textContent,/Falta ligar/);assert.equal(el('cargo-timer').textContent,'45 s');assert.ok(el('route-buttons').children.every(b=>b.disabled));
+  el('power-belt').onclick();assert.deepEqual(net.sent.at(-1),{type:'command',action:'power',stage:0,sector:'belt'});assert.equal(command(g,'one',net.sent.at(-1)),null);snapshot();assert.ok(el('route-buttons').children.every(b=>!b.disabled));
+  const symbol=viewFor(g,shopper.id).observation.symbol,route=viewFor(g,'one').routing[symbol],button=el('route-buttons').children.find(b=>b.dataset.route===route);assert.equal(button.textContent,`${symbol} → ${route}`);button.onclick();assert.equal(command(g,'one',net.sent.at(-1)),null);assert.equal(g.stage,1);snapshot();assert.equal(el('route-section').hidden,true);
   g.stage=3;g.handoff++;snapshot();el('ready-button').onclick();assert.equal(el('operator-tools').hidden,true);assert.equal(el('shopper-tools').hidden,false);assert.match(el('role-badge').textContent,/COMPRADOR/);
   Object.assign(g.players[0],{x:12.2,y:3.7,yaw:0});snapshot();globalThis.__ui.controls.yaw=0;renderer.options.onFrame();assert.equal(el('share-reading').hidden,false);el('share-reading').onclick();assert.match(net.sent.at(-1).text,/Setor A/);assert.ok(el('target-label').textContent.includes('código'));globalThis.innerWidth=390;globalThis.innerHeight=844;windowHandlers.resize();assert.equal(el('rotate-overlay').hidden,false);assert.deepEqual(net.sent.at(-1),{type:'view',ready:false});globalThis.innerWidth=844;globalThis.innerHeight=390;windowHandlers.resize();assert.equal(el('rotate-overlay').hidden,true);assert.deepEqual(net.sent.at(-1),{type:'view',ready:true});
   g.stage=6;g.status='won';g.result={won:true,score:12000,time:250,errors:0,events:1,stars:3};snapshot();assert.equal(el('result-title').textContent,'Compra concluída!');assert.equal(el('result-items').children.length,6);

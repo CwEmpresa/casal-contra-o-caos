@@ -1,10 +1,10 @@
-# Validação v4
+# Validação v4.0.1
 
 8 de outubro de 2026. Node.js 24.19.0.
 
 ## Verificações executadas
 
-`npm test`: 19 testes aprovados.
+`npm test`: 20 testes aprovados.
 
 - Partida completa com seis entregas por movimentação física, colisões, leitura privada dos códigos e símbolos, energia, liberação dos produtos, troca de postos, pagamento sincronizado e saída.
 - Acesso a todos os expositores na planta aberta, sem exigir abertura de grades; colisões de prateleiras rotacionadas e isolamento da central.
@@ -21,6 +21,10 @@
 - Geometria finita para 16 variantes, cenário e animação de personagem.
 
 `npm run check`: todos os módulos JavaScript com sintaxe válida.
+
+## Regressão da esteira (4.0.1)
+
+O teste da interface reproduz carga devolvida por prazo com energia no setor B: quatro rotas desativadas, motivo e recuperação visíveis. Usa as funções reais do servidor para retirar e redepositar, aciona o botão Ligar esteira, verifica que as quatro escolhas ficam disponíveis, clica no símbolo correto e confirma avanço do pedido. Um teste adicional cobre falta de energia, sobrecarga, pausa e os motivos prazo/rota/produto. O motivo da rejeição é projetado sem divulgar símbolo ou ID do item para a central.
 
 ## Orçamento gráfico e inspeção
 

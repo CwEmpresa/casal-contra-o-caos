@@ -25,7 +25,7 @@ export function viewFor(g,id){
  if(!g)return null;const role=roles(g),operator=role.operator===id,target=PRODUCTS.find(p=>p.id===g.list[g.stage]);
  const {list,codes,routeMap,cargoSymbol,resetCode,lastRadio,checkoutUntil,...pub}=g;
  return {...pub,paused:!playable(g),players:g.players.map(({input,queue,credit,lastQueued,batch,holding,...p})=>({...p,holding:operator&&p.id!==id?null:holding})),role,
- pending:g.pending?{status:g.pending.status,remaining:g.pending.remaining,...(!operator?{item:g.pending.item}: {})}:null,
+ pending:g.pending?{status:g.pending.status,remaining:g.pending.remaining,reason:g.pending.reason||null,...(!operator?{item:g.pending.item}: {})}:null,
  order:operator&&target?{sector:target.sector,description:target.description}:null,routing:operator?routeMap:null,
  observation:observation(g,id),checkoutReady:Object.fromEntries(g.players.map(p=>[p.id,Math.max(0,(checkoutUntil[p.id]||0)-g.elapsed)])),result:g.result?{...g.result,answers:[...list]}:null};
 }
@@ -49,7 +49,8 @@ export function command(g,id,m){
   g.event=null;g.heat=20;g.eventCount++;g.nextEvent=60;announce(g,'Circuito rearmado em dupla. Selecione a energia novamente.','success');return null;
  }
  if(m.action==='route'){
-  if(!g.pending||g.pending.status!=='waiting')return 'Aguarde uma carga na esteira.';
+  if(!g.pending)return 'Aguarde o comprador depositar uma carga na esteira.';
+  if(g.pending.status==='rejected')return 'Carga devolvida: o comprador precisa retirá-la e depositar novamente antes de escolher uma rota.';
   if(g.power!=='belt'||g.event)return 'Energize a esteira antes de encaminhar a carga.';
   if(!ROUTES.includes(m.route))return 'Destino desconhecido.';
   if(m.route!==g.routeMap[g.cargoSymbol]||g.pending.item!==g.list[g.stage]){g.pending.status='rejected';g.pending.reason=m.route!==g.routeMap[g.cargoSymbol]?'route':'product';fail(g,m.route!==g.routeMap[g.cargoSymbol]?'Rota incorreta. Retire e deposite a carga para tentar de novo':'Produto fora do pedido. Retire a carga, devolva na prateleira e confira variante, quantidade e selo');return null;}
@@ -82,7 +83,7 @@ export function tick(g,dt,rng=Math.random){
   else stepPlayer(p,p.input,L,dt);
  }
  for(const gate of g.gates)gate.remaining=Math.max(0,gate.remaining-dt);
- if(g.pending?.status==='waiting'){g.pending.remaining=Math.max(0,g.pending.remaining-dt);if(!g.pending.remaining){g.pending.status='rejected';fail(g,'Tempo da esteira esgotado. Retire e deposite a carga novamente');}}
+ if(g.pending?.status==='waiting'){g.pending.remaining=Math.max(0,g.pending.remaining-dt);if(!g.pending.remaining){g.pending.status='rejected';g.pending.reason='timeout';fail(g,'Tempo da esteira esgotado. Retire e deposite a carga novamente');}}
  g.heat=clamp(g.heat+dt*(g.power ? .75 : -3.2),0,100);
  if(g.event){g.event.remaining-=dt;if(g.event.remaining<=0){g.event=null;g.heat=25;g.nextEvent=65;announce(g,'Resfriamento concluído. A central pode religar a energia.');}}
  else if(g.stage>0&&g.stage<g.total){g.nextEvent-=dt;if(g.heat>=100||g.nextEvent<=0)beginEvent(g,'overload',rng);}

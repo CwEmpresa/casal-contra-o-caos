@@ -8,3 +8,19 @@
 /* Native dialogs occupy the top layer: hide them too while rotation is required. */
 .portrait dialog[open]{visibility:hidden}.portrait dialog::backdrop{visibility:hidden}
 @media(pointer:coarse){.station-card button{min-height:44px}.station-card input{min-height:44px;height:44px}}
+
+/* Conveyor controls stay together; inactive choices always have a visible explanation. */
+.station-card>div{flex-shrink:0}
+#reset-section{order:-2}#route-section{order:-1}
+.cargo-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.cargo-heading h3{margin:0}#cargo-timer{font-size:15px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#cargo-timer.urgent{color:#a63c2c}
+.cargo-status{background:#f6e8c9;border:1px solid #d6bc8b;border-radius:10px;padding:10px 12px;margin-bottom:9px}
+.cargo-status strong{font-size:13px}.cargo-status p{font-size:12px;line-height:1.45;margin-top:4px}
+.cargo-status[data-kind="rejected"],.cargo-status[data-kind="overload"]{background:#f8dfd4;border-color:#d6a591}
+.cargo-status[data-kind="ready"]{background:#d4ecdb;border-color:#9bc6ae}
+#power-belt{width:100%;margin-bottom:8px;min-height:44px}#route-help{margin-bottom:8px}
+#route-buttons{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#route-buttons button{min-height:48px;font-size:14px;background:#fff6d8;color:#294f5c;white-space:nowrap;border:1px solid #c7b88a}
+#route-buttons button:disabled{background:#e3e8df;color:#647a7f;opacity:.65}
+@media(max-height:600px) and (orientation:landscape){.cargo-status{padding:8px 10px}.cargo-status strong{font-size:12px}.cargo-status p{font-size:11px}#route-buttons button{font-size:12px;min-height:44px}.cargo-heading{margin-bottom:6px}}

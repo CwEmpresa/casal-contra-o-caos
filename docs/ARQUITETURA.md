@@ -1,4 +1,4 @@
-# Arquitetura v4
+# Arquitetura v4.0.1
 
 ## Simulação e previsão
 
@@ -42,6 +42,8 @@ O operador transmite explicitamente `brief`: setor e descrição tornam-se `shar
 - `radio {text}`: até 140 caracteres, 0,7 s por remetente, histórico de oito mensagens.
 
 Erros tiram 12 s. Rejeições distinguem produto e rota; o comprador pode recuperar a carga e tentar novamente. Após três entregas, troca de postos; depois de seis, confirmações em até quatro segundos e saída física.
+
+`pending.reason` informa timeout, route ou product, sem expor a resposta do pedido. `shared/cargo.js` transforma estado da esteira em instrução para cada posto e condição de seleção. A interface reúne status, prazo, ativação de energia e escolhas clicáveis por símbolo no começo do painel. A validação autoritativa da rota continua exigindo carga esperando e esteira energizada.
 
 ## Renderização
 

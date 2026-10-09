@@ -1,6 +1,14 @@
-# Casal Contra o Caos · v4.0 — Mercado da Meia-noite
+# Casal Contra o Caos · v4.0.1 — Mercado da Meia-noite
 
 Cooperativo online para duas pessoas, em **3D e primeira pessoa**, preparado para celular na horizontal. Um jogador opera a central; o outro busca os produtos. São seis entregas, dez minutos e troca de postos depois da terceira entrega.
+
+## Correção 4.0.1 — símbolo da carga
+
+O painel explica junto às rotas por que elas estão bloqueadas: esteira desligada, carga devolvida, sobrecarga ou pausa. Há botão direto **Ligar esteira**, contador do prazo e botões com **símbolo → rota**. As instruções para retirar/redepositar ou trocar o produto ficam visíveis enquanto a carga estiver devolvida.
+
+Se estiver na tela da versão anterior: o comprador retira a carga devolvida com a mão/E, corrige o produto se necessário e deposita de novo. A central liga Esteira e escolhe a rota indicada pelo símbolo. O prazo reinicia no depósito; ligar a energia sozinho não recupera uma carga já devolvida.
+
+Para aplicar: substitua os arquivos do projeto por este pacote e reinicie/republique o servidor. Recarreguem os dois aparelhos e criem uma nova sala. Reiniciar o servidor encerra salas em andamento.
 
 ## O que mudou nesta versão
 
@@ -23,7 +31,7 @@ Cooperativo online para duas pessoas, em **3D e primeira pessoa**, preparado par
 4. O iniciador instala dependências, inicia este jogo e abre a porta correta. Começa em 3001 e procura outra até 3020 se necessário.
 5. Mantenha a janela aberta. `Ctrl+C` encerra o servidor.
 
-A tela inicial da v4 diz **“Uma compra. Dois postos. Só juntos.”** e **“EDIÇÃO 04”**. Se aparecer outro projeto, confira o endereço exibido no terminal e a pasta de onde abriu o iniciador.
+A tela inicial da v4 diz **“Uma compra. Dois postos. Só juntos.”** e **“EDIÇÃO 04.0.1”**. Se aparecer outro projeto, confira o endereço exibido no terminal e a pasta de onde abriu o iniciador.
 
 No terminal, macOS ou Linux:
 
